@@ -28,4 +28,9 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
         }
     }
+
+    @GetMapping("/login")
+    public ResponseEntity<?> loginStatus() {
+        return ResponseEntity.ok(Map.of("message", "Login endpoint is GET-reachable, but requires POST for actual login."));
+    }
 }

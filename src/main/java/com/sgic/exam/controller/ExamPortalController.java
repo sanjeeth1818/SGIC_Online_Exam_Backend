@@ -1,7 +1,9 @@
 package com.sgic.exam.controller;
 
 import com.sgic.exam.dto.ExamPortalQuestionResponse;
+import com.sgic.exam.dto.ExamEntryValidationRequest;
 import com.sgic.exam.model.Test;
+import com.sgic.exam.service.ExamEntryService;
 import com.sgic.exam.service.ExamPortalService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,9 @@ public class ExamPortalController {
     @Autowired
     private ExamPortalService examPortalService;
 
+    @Autowired
+    private ExamEntryService examEntryService;
+
     @GetMapping("/verify/{code}")
     public ResponseEntity<?> verifyCode(@PathVariable String code) {
         try {
@@ -26,6 +31,12 @@ public class ExamPortalController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
+    }
+
+    @PostMapping("/verify/{code}")
+    public ResponseEntity<?> verifyCodePost(@PathVariable String code, @RequestBody ExamEntryValidationRequest request) {
+        request.setCode(code);
+        return ResponseEntity.ok(examEntryService.validateCode(request));
     }
 
     @GetMapping("/resume-state/{code}")

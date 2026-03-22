@@ -1,22 +1,17 @@
 package com.sgic.exam.controller;
 
-import com.sgic.exam.dto.PasswordChangeRequest;
-import com.sgic.exam.dto.ProfileUpdateRequest;
-import com.sgic.exam.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
 
-@CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
 
     @Autowired
-    private AdminService adminService;
+    private com.sgic.exam.service.AdminService adminService;
 
     @GetMapping("/profile/{username}")
     public ResponseEntity<?> getProfile(@PathVariable String username) {
@@ -29,7 +24,7 @@ public class AdminController {
 
     @PutMapping("/profile/{currentUsername}")
     public ResponseEntity<?> updateProfile(@PathVariable String currentUsername,
-            @RequestBody ProfileUpdateRequest request) {
+            @RequestBody com.sgic.exam.dto.ProfileUpdateRequest request) {
         try {
             return ResponseEntity.ok(adminService.updateProfile(currentUsername, request));
         } catch (IllegalArgumentException e) {
@@ -41,7 +36,7 @@ public class AdminController {
 
     @PostMapping("/change-password/{username}")
     public ResponseEntity<?> changePassword(@PathVariable String username,
-            @RequestBody PasswordChangeRequest request) {
+            @RequestBody com.sgic.exam.dto.PasswordChangeRequest request) {
         try {
             adminService.changePassword(username, request);
             return ResponseEntity.ok(Map.of("message", "Password changed successfully"));

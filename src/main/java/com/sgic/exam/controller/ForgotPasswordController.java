@@ -10,7 +10,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth/forgot-password")
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class ForgotPasswordController {
 
     @Autowired
