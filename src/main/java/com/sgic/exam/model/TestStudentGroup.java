@@ -23,5 +23,6 @@ public class TestStudentGroup {
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "test_student_group_students", joinColumns = @JoinColumn(name = "group_id"), inverseJoinColumns = @JoinColumn(name = "student_id"))
+    @org.hibernate.annotations.BatchSize(size = 100)
     private List<Student> students;
 }

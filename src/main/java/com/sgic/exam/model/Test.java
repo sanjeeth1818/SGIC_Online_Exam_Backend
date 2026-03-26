@@ -39,14 +39,17 @@ public class Test {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "test_id")
+    @org.hibernate.annotations.BatchSize(size = 100)
     private List<TestCategoryConfig> categoryConfigs = new java.util.ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "test_id")
+    @org.hibernate.annotations.BatchSize(size = 100)
     private List<TestStudentGroup> studentGroups = new java.util.ArrayList<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(name = "test_manual_questions", joinColumns = @JoinColumn(name = "test_id"), inverseJoinColumns = @JoinColumn(name = "question_id"))
+    @org.hibernate.annotations.BatchSize(size = 100)
     private List<Question> manualQuestions = new java.util.ArrayList<>();
 
     private Integer totalQuestions;

@@ -18,4 +18,9 @@ public interface StudentExamCodeRepository extends JpaRepository<StudentExamCode
     @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     void deleteByStudentId(Long studentId);
+
+    long countByTestId(Long testId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(c) FROM StudentExamCode c WHERE c.testId = :testId AND c.status NOT IN ('USED', 'EXPIRED')")
+    long countPendingCodesByTestId(@org.springframework.data.repository.query.Param("testId") Long testId);
 }

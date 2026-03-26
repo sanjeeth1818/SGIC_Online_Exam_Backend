@@ -36,7 +36,7 @@ public class TestSchedulerService {
     @Transactional
     public void updateExamStatuses() {
         System.out.println("Running automated exam status and student attendance update...");
-        List<Test> tests = testRepository.findAll();
+        List<Test> tests = testRepository.findByStatusNot("Expired");
         LocalDate today = LocalDate.now();
 
         for (Test test : tests) {

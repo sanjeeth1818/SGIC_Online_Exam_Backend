@@ -104,3 +104,4 @@ com\sgic\exam\model\Test.class
 com\sgic\exam\config\DatabaseMigrationRunner.class
 com\sgic\exam\dto\LoginRequest.class
 com\sgic\exam\dto\LoginResponse.class
+com\sgic\exam\config\AsyncConfig.class

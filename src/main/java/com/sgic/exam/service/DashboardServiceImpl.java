@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sgic.exam.dto.QuestionResult;
 import com.sgic.exam.model.Submission;
-import com.sgic.exam.model.TestStudentGroup;
+
 import com.sgic.exam.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -38,11 +38,7 @@ public class DashboardServiceImpl implements DashboardService {
     public Map<String, Object> getDashboardStats(String period) {
         LocalDateTime start = getStartTime(period);
 
-        long studentsCount = submissionRepository.findAll().stream()
-                .filter(s -> s.getSubmittedAt() != null && s.getSubmittedAt().isAfter(start))
-                .map(s -> s.getStudentEmail().toLowerCase().trim())
-                .distinct()
-                .count();
+        long studentsCount = submissionRepository.countDistinctStudentsSince(start);
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalTests", testRepository.count());
@@ -57,12 +53,10 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public List<Map<String, Object>> getActiveTests() {
-        List<com.sgic.exam.model.Test> allTests = testRepository.findAll();
+        List<com.sgic.exam.model.Test> allTests = testRepository.findTop3ByOrderByIdDesc();
         List<Map<String, Object>> active = new ArrayList<>();
 
-        int limit = Math.min(3, allTests.size());
-        for (int i = allTests.size() - 1; i >= allTests.size() - limit; i--) {
-            com.sgic.exam.model.Test t = allTests.get(i);
+        for (com.sgic.exam.model.Test t : allTests) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", t.getId());
             map.put("name", t.getName());
@@ -86,22 +80,19 @@ public class DashboardServiceImpl implements DashboardService {
         Map<Integer, List<String>> pastMap = new LinkedHashMap<>();
         Map<Integer, List<String>> upcomingMap = new LinkedHashMap<>();
 
-        for (com.sgic.exam.model.Test test : testRepository.findAll()) {
-            if (test.getStudentGroups() == null)
-                continue;
-            for (TestStudentGroup group : test.getStudentGroups()) {
-                if (group.getExamDate() == null)
-                    continue;
-                try {
-                    LocalDate examDate = LocalDate.parse(group.getExamDate());
-                    if (examDate.getMonthValue() == targetMonth && examDate.getYear() == targetYear) {
-                        int day = examDate.getDayOfMonth();
-                        String examName = test.getName() != null ? test.getName() : "Unnamed Exam";
-                        Map<Integer, List<String>> target = examDate.isBefore(today) ? pastMap : upcomingMap;
-                        target.computeIfAbsent(day, k -> new ArrayList<>()).add(examName);
-                    }
-                } catch (Exception ignored) {
+        List<Object[]> namesAndDates = testRepository.findTestNamesAndExamDates();
+        for (Object[] row : namesAndDates) {
+            String testName = (String) row[0];
+            String dateStr = (String) row[1];
+            try {
+                LocalDate examDate = LocalDate.parse(dateStr);
+                if (examDate.getMonthValue() == targetMonth && examDate.getYear() == targetYear) {
+                    int day = examDate.getDayOfMonth();
+                    String examName = testName != null ? testName : "Unnamed Exam";
+                    Map<Integer, List<String>> target = examDate.isBefore(today) ? pastMap : upcomingMap;
+                    target.computeIfAbsent(day, k -> new ArrayList<>()).add(examName);
                 }
+            } catch (Exception ignored) {
             }
         }
 
@@ -127,9 +118,7 @@ public class DashboardServiceImpl implements DashboardService {
     @Override
     public List<Map<String, Object>> getCategoryPerformance(String period) {
         LocalDateTime start = getStartTime(period);
-        List<Submission> submissions = submissionRepository.findAll().stream()
-                .filter(s -> s.getSubmittedAt() != null && s.getSubmittedAt().isAfter(start))
-                .collect(Collectors.toList());
+        List<Submission> submissions = submissionRepository.findBySubmittedAtGreaterThan(start);
 
         Map<String, List<Boolean>> categoryResults = new HashMap<>();
         ObjectMapper mapper = new ObjectMapper();
@@ -169,7 +158,29 @@ public class DashboardServiceImpl implements DashboardService {
         ObjectMapper mapper = new ObjectMapper();
         Map<String, List<Boolean>> timePoints = new LinkedHashMap<>();
 
-        for (Submission submission : submissionRepository.findAll()) {
+        LocalDateTime startFilter = LocalDateTime.of(2000, 1, 1, 0, 0);
+        LocalDateTime endFilter = LocalDateTime.now().plusYears(1);
+
+        if ("year_range".equalsIgnoreCase(period) && startYear != null && endYear != null) {
+            startFilter = LocalDateTime.of(startYear, 1, 1, 0, 0);
+            endFilter = LocalDateTime.of(endYear, 12, 31, 23, 59);
+        } else if ("month_range".equalsIgnoreCase(period) && year != null && startMonth != null && endMonth != null) {
+            startFilter = LocalDateTime.of(year, startMonth, 1, 0, 0);
+            endFilter = LocalDateTime.of(year, endMonth, 1, 0, 0).plusMonths(1).minusMinutes(1);
+        } else if (year != null && month != null) {
+            startFilter = LocalDateTime.of(year, month, 1, 0, 0);
+            endFilter = startFilter.plusMonths(1).minusMinutes(1);
+        } else if (year != null) {
+            startFilter = LocalDateTime.of(year, 1, 1, 0, 0);
+            endFilter = LocalDateTime.of(year, 12, 31, 23, 59);
+        } else if ("year".equalsIgnoreCase(period)) {
+            startFilter = LocalDateTime.now().withDayOfYear(1).withHour(0).withMinute(0);
+            endFilter = LocalDateTime.now().withDayOfYear(365).withHour(23).withMinute(59);
+        } else {
+            startFilter = getStartTime("month");
+        }
+
+        for (Submission submission : submissionRepository.findBySubmittedAtBetween(startFilter, endFilter)) {
             if (submission.getSubmittedAt() == null || submission.getDetailedBreakdownJson() == null)
                 continue;
 
@@ -213,15 +224,13 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     public Map<String, Integer> getYearRange() {
-        List<Submission> submissions = submissionRepository.findAll();
         int currentYear = LocalDate.now().getYear();
         int min = currentYear, max = currentYear;
 
-        if (!submissions.isEmpty()) {
-            min = submissions.stream().filter(s -> s.getSubmittedAt() != null)
-                    .mapToInt(s -> s.getSubmittedAt().getYear()).min().orElse(min);
-            max = submissions.stream().filter(s -> s.getSubmittedAt() != null)
-                    .mapToInt(s -> s.getSubmittedAt().getYear()).max().orElse(max);
+        List<Object[]> result = submissionRepository.findMinMaxSubmissionYear();
+        if (result != null && !result.isEmpty() && result.get(0)[0] != null && result.get(0)[1] != null) {
+            min = ((Number) result.get(0)[0]).intValue();
+            max = ((Number) result.get(0)[1]).intValue();
         }
 
         Map<String, Integer> range = new HashMap<>();

@@ -34,23 +34,10 @@ public class SubmissionServiceImpl implements SubmissionService {
     private EmailService emailService;
 
     @Override
+    @Transactional
     public List<Submission> getAllSubmissions() {
-        List<Submission> all = submissionRepository.findAll();
-        for (Submission s : all) {
-            if (s.getStudentEmail() == null) {
-                backfillStudentEmail(s);
-            }
-        }
-        return all;
-    }
-
-    private void backfillStudentEmail(Submission s) {
-        if (s.getStudentId() != null) {
-            studentRepository.findById(s.getStudentId()).ifPresent(student -> {
-                s.setStudentEmail(student.getEmail());
-                submissionRepository.save(s);
-            });
-        }
+        submissionRepository.backfillMissingEmails();
+        return submissionRepository.findAll();
     }
 
     @Override
@@ -178,10 +165,10 @@ public class SubmissionServiceImpl implements SubmissionService {
     }
 
     private void checkAutoExpiration(Test test) {
-        List<StudentExamCode> codes = studentExamCodeRepository.findByTestId(test.getId());
-        if (!codes.isEmpty()) {
-            boolean allFinished = codes.stream().allMatch(c -> "USED".equalsIgnoreCase(c.getStatus()) || "EXPIRED".equalsIgnoreCase(c.getStatus()));
-            if (allFinished) {
+        long totalCodes = studentExamCodeRepository.countByTestId(test.getId());
+        if (totalCodes > 0) {
+            long pendingCount = studentExamCodeRepository.countPendingCodesByTestId(test.getId());
+            if (pendingCount == 0) {
                 test.setStatus("Expired");
                 testRepository.save(test);
             }
